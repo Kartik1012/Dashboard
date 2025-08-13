@@ -1,0 +1,82 @@
+from dataclasses import dataclass, field
+import typing as t
+from ragas.metrics.base import MetricType, MetricWithLLM, SingleTurnMetric
+from ragas.dataset_schema import SingleTurnSample
+from pydantic import BaseModel, Field
+import numpy as np
+
+# Minimal input-output models
+class ContextAnswerPair(BaseModel):
+    context: str = Field(..., description="Retrieved context")
+    answer: str = Field(..., description="Generated answer")
+
+class Verification(BaseModel):
+    reason: str = Field(..., description="Reason for verification")
+    verdict: int = Field(..., description="Binary (0/1) verdict of verification")
+
+# Custom prompt that ignores question
+from ragas.prompt import PydanticPrompt
+class ContextUtilizationPrompt(PydanticPrompt[ContextAnswerPair, Verification]):
+    name: str = "context_utilization_no_question"
+    instruction: str = (
+        'Given a context and an answer, verify if the context was useful in arriving at the given answer. '
+        'Give verdict as "1" if useful and "0" if not, with JSON output.'
+    )
+    input_model = ContextAnswerPair
+    output_model = Verification
+    examples = [
+        (
+            ContextAnswerPair(
+                context="Mount Everest is the tallest mountain in the world.",
+                answer="Mount Everest."
+            ),
+            Verification(
+                reason="The context directly supports the answer by naming Mount Everest as the tallest mountain.",
+                verdict=1
+            )
+        ),
+        (
+            ContextAnswerPair(
+                context="The Amazon rainforest is the largest rainforest in the world.",
+                answer="Mount Everest."
+            ),
+            Verification(
+                reason="The context is unrelated to the answer and does not help in answering the question.",
+                verdict=0
+            )
+        ),
+    ]
+
+@dataclass
+class ContextUtilizationNoQuestion(MetricWithLLM, SingleTurnMetric):
+    """
+    Context Utilization metric without using the question.
+    Only checks context vs answer relevance.
+    """
+    name: str = "context_utilization_no_question"
+    _required_columns: t.Dict[str, t.Set[str]] = field(
+        default_factory=lambda: {
+            MetricType.SINGLE_TURN: {"response", "retrieved_contexts"}
+        }
+    )
+    context_precision_prompt: PydanticPrompt = field(
+        default_factory=ContextUtilizationPrompt
+    )
+
+    async def _single_turn_ascore(self, sample: SingleTurnSample, callbacks) -> float:
+        row = sample.to_dict()
+        answer = row["response"]
+        retrieved_contexts = row["retrieved_contexts"]
+
+        verdicts = []
+        for context in retrieved_contexts:
+            results: t.List[Verification] = await self.context_precision_prompt.generate_multiple(
+                data=ContextAnswerPair(context=context, answer=answer),
+                llm=self.llm,
+                callbacks=callbacks,
+            )
+            verdicts.append(1 if results[0].verdict else 0)
+
+        # Simple ratio calculation (relevant / total)
+        score = sum(verdicts) / len(verdicts) if verdicts else 0.0
+        return score
