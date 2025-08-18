@@ -1,0 +1,72 @@
+Expanded Core Metrics (with your additions)
+
+Notation:
+Q = original question,
+A = generated answer,
+C = {c₁, c₂ … cₖ} retrieved contexts,
+GT = ground truth (optional).
+
+3.1 Context Recall
+
+Checks if necessary evidence was retrieved.
+
+With GT → verify whether key facts from GT appear in any cᵢ.
+
+Without GT → check if answer claims are supported in any cᵢ.
+
+Score (0–1): supported_facts / total_facts.
+
+3.2 Context Precision
+
+Proportion of retrieved contexts that are truly relevant to Q.
+
+Score (0–1): relevant_contexts / total_contexts.
+
+3.3 Context Entity Recall 🔥 (your addition)
+
+Measures whether entities in GT (or expected answer) are covered by retrieved contexts.
+
+Uses NER (Named Entity Recognition) to extract entities from GT/Answer and compares with entities in contexts.
+
+Score (0–1): entities_covered / total_entities.
+
+3.4 Context Utilization (enhanced definition 🔥)
+
+Checks how many contexts are actually used by the model in the answer.
+
+For each cᵢ, compute semantic overlap with A → if significant, mark as "used."
+
+Score (0–1): used_contexts / total_contexts.
+(Previously context utilization was just attribution; now we explicitly count how many contexts contributed to A.)
+
+3.5 Faithfulness / Groundedness
+
+Extract claims from A → check if entailed by any cᵢ using NLI/LLM-judge.
+
+Penalize contradictions.
+
+Score (0–1): entailed_claims / total_claims.
+
+3.6 Answer Relevancy
+
+Measures whether A addresses Q.
+
+Embedding similarity + LLM rubric for topical alignment.
+
+Score (0–1).
+
+3.7 Answer Similarity / Correctness vs GT
+
+(If GT available) Compare A with GT using semantic similarity, factual match, or BERTScore.
+
+Score (0–1).
+
+3.8 QA Correctness (based on Question–Question Similarity) 🔥
+
+Generate a rephrased/implicit question from the answer (Q′).
+
+Measure topic similarity between original Q and generated Q′.
+
+If Q′ diverges from Q → model may be answering a different question.
+
+Score (0–1): sim(Q, Q′).
