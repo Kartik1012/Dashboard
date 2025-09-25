@@ -1,0 +1,29 @@
+var dagcomponentfuncs = window.dashAgGridComponentFunctions = window.dashAgGridComponentFunctions || {};
+
+dagcomponentfuncs.MyCustomTooltip = function(props) {
+    // props.value is the cell value, props.tooltipValue is the tooltip text
+    const tooltipText = props.tooltipValue || "";
+
+    // Use React to create the element
+    return React.createElement(
+        "div",
+        {
+            style: {
+                maxWidth: "300px",
+                maxHeight: "120px",
+                overflowY: "auto",
+                overflowX: "hidden",
+                background: "white",
+                color: "black",
+                border: "1px solid #888",
+                borderRadius: "4px",
+                padding: "8px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                fontSize: "14px",
+                whiteSpace: "normal",  // allow wrap
+                zIndex: 1000
+            }
+        },
+        tooltipText
+    );
+};
